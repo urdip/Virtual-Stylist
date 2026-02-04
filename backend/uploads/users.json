@@ -1,0 +1,34 @@
+{
+  "test@example.com": {
+    "id": "12bc8669-b1d2-406c-9d24-88867eaf6f97",
+    "email": "test@example.com",
+    "name": "Test User",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "photo_url": null,
+    "created_at": "caf3f9c2-ff79-11f0-9172-da33ba08cbba"
+  },
+  "Jadejaurdip@gmail.com": {
+    "id": "35c009c7-1909-4415-95c2-da5ceb93d4a1",
+    "email": "Jadejaurdip@gmail.com",
+    "name": "urdip",
+    "password_hash": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
+    "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/profile.jpg",
+    "created_at": "d18d3208-ff79-11f0-9172-da33ba08cbba"
+  },
+  "jadejaurdip@gmail.com": {
+    "id": "8c19dd45-6637-40d7-b4f4-f8a27051930a",
+    "email": "jadejaurdip@gmail.com",
+    "name": "Urdipsinh Jadeja",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "photo_url": "http://localhost:8000/uploads/users/8c19dd45-6637-40d7-b4f4-f8a27051930a/profile.jpg",
+    "created_at": "6a3b3814-0093-11f1-a7d0-da33ba08cbba"
+  },
+  "Jadejaurdip!@gmail.com": {
+    "id": "8ec05a70-e854-482a-9149-6e130d4c813d",
+    "email": "Jadejaurdip!@gmail.com",
+    "name": "Urdipsinh Jadeja",
+    "password_hash": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
+    "photo_url": null,
+    "created_at": "a63c85be-0171-11f1-9e47-da33ba08cbba"
+  }
+}

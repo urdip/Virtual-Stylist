@@ -1,0 +1,62 @@
+{
+  "8c19dd45-6637-40d7-b4f4-f8a27051930a": [
+    {
+      "id": "f4b4e5d2-6641-4546-ad3c-447da77f3d1a",
+      "name": "Test",
+      "photo_url": "http://localhost:8000/uploads/users/8c19dd45-6637-40d7-b4f4-f8a27051930a/avatars/avatar_1ea12253-8f9e-4ecd-8cd1-995f28565321.jpg",
+      "is_active": false,
+      "created_at": "61e3bd20-0099-11f1-9d28-da33ba08cbba"
+    },
+    {
+      "id": "41119cff-3943-43e4-b751-f59935a23f6f",
+      "name": "1",
+      "photo_url": "http://localhost:8000/uploads/users/8c19dd45-6637-40d7-b4f4-f8a27051930a/avatars/avatar_03b590b8-1f6e-43cd-a29e-b1170a13b1ff.jpg",
+      "is_active": true,
+      "created_at": "91f9d4d6-0099-11f1-9d28-da33ba08cbba"
+    }
+  ],
+  "35c009c7-1909-4415-95c2-da5ceb93d4a1": [
+    {
+      "id": "12cd0bbd-897a-42f0-b32b-de42e44ae618",
+      "name": "t1",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_df8ba310-2249-4e5c-a124-927ee95ba2cc.jpg",
+      "is_active": false,
+      "created_at": "cff28992-009c-11f1-8c1f-da33ba08cbba"
+    },
+    {
+      "id": "cd0ffd60-e15d-4c1c-bcf2-ffd3d033a2c9",
+      "name": "1",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_44a7cc11-6266-47c5-8bc9-87ed6b65e470.jpg",
+      "is_active": false,
+      "created_at": "45bf2ffe-009d-11f1-8865-da33ba08cbba"
+    },
+    {
+      "id": "b8fd4589-9f4b-4238-8716-e1cde62c92f5",
+      "name": "1",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_798d1ed6-01fa-4cdd-9364-e8c8854aa5cb.jpg",
+      "is_active": false,
+      "created_at": "25f3a11c-009f-11f1-be6b-da33ba08cbba"
+    },
+    {
+      "id": "cf0d4351-8fb1-4ac4-aeed-cae1fe90862f",
+      "name": "11",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_cc5be4a1-9399-4d6d-9999-d896794f3a2e.jpg",
+      "is_active": true,
+      "created_at": "67f31812-0145-11f1-a864-da33ba08cbba"
+    },
+    {
+      "id": "b32e07a1-9a43-4d16-b5da-95cead0d92d4",
+      "name": "1",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_6ca141ce-cd00-4db2-86f2-919d240f3ead.jpg",
+      "is_active": false,
+      "created_at": "114c56ea-014a-11f1-b93f-da33ba08cbba"
+    },
+    {
+      "id": "222c0759-b56a-4143-9c67-7b28fe483be1",
+      "name": "123",
+      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_77ee224c-d579-4e86-a859-10ac142708d2.jpg",
+      "is_active": false,
+      "created_at": "2bfbc508-014e-11f1-b865-da33ba08cbba"
+    }
+  ]
+}
