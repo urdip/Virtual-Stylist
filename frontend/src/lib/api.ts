@@ -101,6 +101,41 @@ export async function logout() {
   localStorage.removeItem("user");
 }
 
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const form = new FormData();
+  form.append("current_password", currentPassword);
+  form.append("new_password", newPassword);
+  
+  const token = getToken();
+  const res = await fetch(`${BACKEND_BASE}/auth/change-password`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}` },
+    body: form,
+  });
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to change password" }));
+    throw new Error(err.detail);
+  }
+  
+  return res.json();
+}
+
+export async function requestPasswordReset(email: string) {
+  const res = await fetch(`${BACKEND_BASE}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to request password reset" }));
+    throw new Error(err.detail);
+  }
+  
+  return res.json();
+}
+
 export async function getMe(): Promise<User> {
   return fetchWithAuth(`${BACKEND_BASE}/auth/me`).then(r => r.user);
 }
@@ -220,6 +255,62 @@ export async function generateOutfitTryOn(garmentUrls: string[], photoUrl?: stri
     mode: data.mode,
     garmentCount: data.garment_count 
   };
+}
+
+// Outfit Types
+export type OutfitItem = {
+  id: string;
+  url: string;
+  filename: string;
+  category: string;
+};
+
+export type SavedOutfit = {
+  id: string;
+  name: string;
+  result_url: string;
+  garments: OutfitItem[];
+  created_at: string;
+};
+
+// Outfits API
+export async function listOutfits(): Promise<SavedOutfit[]> {
+  const data = await fetchWithAuth(`${BACKEND_BASE}/outfits`);
+  return data.outfits || [];
+}
+
+export async function saveOutfit(
+  resultUrl: string, 
+  garments: OutfitItem[], 
+  name?: string
+): Promise<SavedOutfit> {
+  const data = await fetchWithAuth(`${BACKEND_BASE}/outfits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      result_url: resultUrl,
+      garments,
+      name: name || ""
+    }),
+  });
+  return data.outfit;
+}
+
+export async function updateOutfitName(outfitId: string, name: string): Promise<SavedOutfit> {
+  const form = new FormData();
+  form.append("name", name);
+  
+  const data = await fetchWithAuth(`${BACKEND_BASE}/outfits/${outfitId}`, {
+    method: "PUT",
+    body: form,
+  });
+  return data.outfit;
+}
+
+export async function deleteOutfit(outfitId: string): Promise<void> {
+  await fetchWithAuth(`${BACKEND_BASE}/outfits/${outfitId}`, {
+    method: "DELETE",
+  });
 }
 
 // Avatar Types

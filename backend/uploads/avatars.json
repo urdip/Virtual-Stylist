@@ -20,7 +20,7 @@
       "id": "12cd0bbd-897a-42f0-b32b-de42e44ae618",
       "name": "t1",
       "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_df8ba310-2249-4e5c-a124-927ee95ba2cc.jpg",
-      "is_active": false,
+      "is_active": true,
       "created_at": "cff28992-009c-11f1-8c1f-da33ba08cbba"
     },
     {
@@ -36,27 +36,6 @@
       "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_798d1ed6-01fa-4cdd-9364-e8c8854aa5cb.jpg",
       "is_active": false,
       "created_at": "25f3a11c-009f-11f1-be6b-da33ba08cbba"
-    },
-    {
-      "id": "cf0d4351-8fb1-4ac4-aeed-cae1fe90862f",
-      "name": "11",
-      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_cc5be4a1-9399-4d6d-9999-d896794f3a2e.jpg",
-      "is_active": true,
-      "created_at": "67f31812-0145-11f1-a864-da33ba08cbba"
-    },
-    {
-      "id": "b32e07a1-9a43-4d16-b5da-95cead0d92d4",
-      "name": "1",
-      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_6ca141ce-cd00-4db2-86f2-919d240f3ead.jpg",
-      "is_active": false,
-      "created_at": "114c56ea-014a-11f1-b93f-da33ba08cbba"
-    },
-    {
-      "id": "222c0759-b56a-4143-9c67-7b28fe483be1",
-      "name": "123",
-      "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/avatars/avatar_77ee224c-d579-4e86-a859-10ac142708d2.jpg",
-      "is_active": false,
-      "created_at": "2bfbc508-014e-11f1-b865-da33ba08cbba"
     }
   ]
 }

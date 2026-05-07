@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { uploadClothing, listWardrobe } from "../../src/lib/api";
+import { uploadClothing, listWardrobe, Category } from "../../src/lib/api";
 
 type WardrobeItem = {
   id: string;
@@ -11,17 +11,16 @@ type WardrobeItem = {
   url: string;
 };
 
-const CATEGORIES = [
+const CATEGORIES: { value: Category; label: string; icon: string }[] = [
   { value: "top", label: "Tops", icon: "👕" },
   { value: "bottom", label: "Bottoms", icon: "👖" },
   { value: "shoes", label: "Shoes", icon: "👟" },
   { value: "dress", label: "Dresses", icon: "👗" },
   { value: "accessory", label: "Accessories", icon: "👜" },
-  { value: "outerwear", label: "Outerwear", icon: "🧥" },
 ];
 
 export default function AvatarPage() {
-  const [category, setCategory] = useState("top");
+  const [category, setCategory] = useState<Category>("top");
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -193,7 +192,7 @@ export default function AvatarPage() {
 
         /* Header */
         .page-header {
-          background: linear-gradient(135deg, var(--card) 0%, #fafafa 100%);
+          background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%);
           border-bottom: 1px solid var(--border);
           padding: clamp(20px, 5vw, 32px) clamp(16px, 5vw, 32px);
         }

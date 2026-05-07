@@ -4,6 +4,7 @@ Users can create, store, and switch between multiple AI avatars
 """
 
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import List, Optional
@@ -24,8 +25,9 @@ class AvatarUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
 
-# In-memory storage (replace with database in production)
-AVATARS_FILE = Path("uploads/avatars.json")
+# Use /tmp on Vercel (serverless), local uploads dir for development
+BASE_UPLOADS = Path(os.getenv("UPLOADS_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "uploads"))
+AVATARS_FILE = BASE_UPLOADS / "avatars.json"
 
 def _init_storage():
     AVATARS_FILE.parent.mkdir(exist_ok=True)

@@ -13,8 +13,10 @@ from pydantic import BaseModel
 from fastapi import HTTPException, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-USERS_FILE = Path("uploads/users.json")
-SESSIONS_FILE = Path("uploads/sessions.json")
+# Use /tmp on Vercel (serverless), local uploads dir for development
+BASE_UPLOADS = Path(os.getenv("UPLOADS_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "uploads"))
+USERS_FILE = BASE_UPLOADS / "users.json"
+SESSIONS_FILE = BASE_UPLOADS / "sessions.json"
 
 # Ensure files exist
 def _init_storage():
@@ -167,12 +169,79 @@ def update_user_profile(email: str, name: str = None, photo_url: str = None):
         created_at=users[email]["created_at"]
     )
 
+def google_login_user(id_token_str: str) -> Session:
+    """Verify a Google ID token and create/find the user, returning a session."""
+    import os
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if not client_id:
+        raise HTTPException(status_code=500, detail="Google sign-in not configured")
+
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        idinfo = google_id_token.verify_oauth2_token(
+            id_token_str, google_requests.Request(), client_id
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+    email = idinfo["email"]
+    name = idinfo.get("name", email.split("@")[0])
+
+    _init_storage()
+    users = _load_json(USERS_FILE)
+
+    if email not in users:
+        user_id = str(uuid.uuid4())
+        users[email] = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "password_hash": None,
+            "photo_url": idinfo.get("picture"),
+            "created_at": str(uuid.uuid1()),
+        }
+        _save_json(USERS_FILE, users)
+
+    user = users[email]
+    sessions = _load_json(SESSIONS_FILE)
+    token = str(uuid.uuid4())
+    session = {
+        "token": token,
+        "user_id": user["id"],
+        "email": user["email"],
+        "created_at": str(uuid.uuid1()),
+    }
+    sessions[token] = session
+    _save_json(SESSIONS_FILE, sessions)
+
+    return Session(**session)
+
+
 def logout_user(token: str):
     _init_storage()
     sessions = _load_json(SESSIONS_FILE)
     if token in sessions:
         del sessions[token]
         _save_json(SESSIONS_FILE, sessions)
+
+def change_password(email: str, current_password: str, new_password: str):
+    """Change user password"""
+    _init_storage()
+    users = _load_json(USERS_FILE)
+    
+    if email not in users:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if users[email]["password_hash"] != _hash_password(current_password):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Update password
+    users[email]["password_hash"] = _hash_password(new_password)
+    _save_json(USERS_FILE, users)
+    
+    return True
 
 # FastAPI dependency
 security = HTTPBearer(auto_error=False)

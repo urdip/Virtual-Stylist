@@ -1,9 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { register, login } from "../../src/lib/api";
+import { register, login, loginWithGoogle } from "../../src/lib/api";
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: object) => void;
+          renderButton: (el: HTMLElement, config: object) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +26,44 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.google?.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential: string }) => {
+          setError("");
+          setIsLoading(true);
+          try {
+            await loginWithGoogle(response.credential);
+            router.push("/builder");
+          } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Google sign-in failed");
+          } finally {
+            setIsLoading(false);
+          }
+        },
+      });
+      const btn = document.getElementById("google-signup-btn");
+      if (btn) {
+        window.google?.accounts.id.renderButton(btn, {
+          theme: "outline",
+          size: "large",
+          width: "100%",
+          text: "signup_with",
+        });
+      }
+    };
+    document.head.appendChild(script);
+    return () => { document.head.removeChild(script); };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +156,15 @@ export default function RegisterPage() {
             )}
           </button>
         </form>
+
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="divider">
+              <span>or</span>
+            </div>
+            <div id="google-signup-btn" className="google-btn-wrapper" />
+          </>
+        )}
 
         <p className="auth-footer">
           Already have an account?{" "}
@@ -200,7 +261,7 @@ export default function RegisterPage() {
 
         .input:focus {
           border-color: var(--accent);
-          box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.1);
+          box-shadow: 0 0 0 3px var(--accent-light);
         }
 
         .hint {
@@ -254,6 +315,29 @@ export default function RegisterPage() {
           to { transform: rotate(360deg); }
         }
 
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 16px 0 8px;
+          color: var(--muted);
+          font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--border, #e5e7eb);
+        }
+
+        .google-btn-wrapper {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 8px;
+        }
+
         .auth-footer {
           text-align: center;
           margin-top: 24px;
@@ -287,7 +371,7 @@ export default function RegisterPage() {
         /* Tablet and up */
         @media (min-width: 768px) {
           .auth-container {
-            background: linear-gradient(135deg, #f5f3f0 0%, #ebe8e3 100%);
+            background: linear-gradient(135deg, #f0fdfa 0%, #e6faf8 100%);
           }
 
           .auth-content {

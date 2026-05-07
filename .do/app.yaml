@@ -1,0 +1,42 @@
+name: virtual-stylist
+region: nyc
+
+services:
+  # Backend (FastAPI)
+  - name: backend
+    github:
+      repo: urdip/Virtual-Stylist
+      branch: main
+    source_dir: backend
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    envs:
+      - key: KLINGAI_ACCESS_KEY
+        value: ${KLINGAI_ACCESS_KEY}
+        type: SECRET
+      - key: KLINGAI_SECRET_KEY
+        value: ${KLINGAI_SECRET_KEY}
+        type: SECRET
+      - key: BACKEND_PUBLIC_BASE
+        value: ${APP_URL}/backend
+      - key: CORS_ORIGINS
+        value: ${APP_URL},http://localhost:3000
+      - key: UPLOADS_DIR
+        value: /tmp/uploads
+
+  # Frontend (Next.js)
+  - name: frontend
+    github:
+      repo: urdip/Virtual-Stylist
+      branch: main
+    source_dir: frontend
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    build_command: npm install && npm run build
+    run_command: npm start
+    envs:
+      - key: NEXT_PUBLIC_API_URL
+        value: ${APP_URL}/backend

@@ -120,7 +120,7 @@ class KlingAIClient:
         garment_path: str,
         output_path: str,
         model_name: str = "kolors-virtual-try-on-v1-5",
-        max_wait: int = 300,
+        max_wait: int = 180,
         retries: int = 3
     ) -> str:
         """
@@ -177,7 +177,7 @@ class KlingAIClient:
                 
             except requests.exceptions.HTTPError as e:
                 if attempt < retries - 1:
-                    time.sleep(2)
+                    time.sleep(1)
                     continue
                 raise
         
@@ -208,28 +208,18 @@ class KlingAIClient:
             Path to result image
         """
         import tempfile
-        
-        print("  Sequential multi-garment: applying bottom first, then top...")
-        
-        # Step 1: Apply bottom garment (pants) first
+
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-            step1_path = tmp.name
-        
+            merged_path = tmp.name
+
         try:
-            print(f"    Step 1/2: Applying bottom garment...")
-            self.tryon(person_path, bottom_path, step1_path, model_name, max_wait)
-            
-            # Step 2: Apply top garment over the result
-            print(f"    Step 2/2: Applying top garment...")
-            self.tryon(step1_path, top_path, output_path, model_name, max_wait)
-            
-            print(f"    Multi-garment complete: {output_path}")
-            return output_path
-            
+            print("  Merging garments into single image...")
+            self._merge_garments(top_path, bottom_path, merged_path)
+            print("  Single Kling AI call with merged garment...")
+            return self.tryon(person_path, merged_path, output_path, model_name, max_wait)
         finally:
-            # Cleanup temp file
-            if os.path.exists(step1_path):
-                os.unlink(step1_path)
+            if os.path.exists(merged_path):
+                os.unlink(merged_path)
     
     def _wait_for_result(self, task_id: str, output_path: str, max_wait: int) -> str:
         """Poll for task result"""
@@ -267,7 +257,7 @@ class KlingAIClient:
             elif status == "failed":
                 raise ValueError(f"Task failed: {result['data'].get('task_status_msg', 'Unknown error')}")
             
-            time.sleep(2)
+            time.sleep(1)
         
         raise TimeoutError("Task timed out")
 

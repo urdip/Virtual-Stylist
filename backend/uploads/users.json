@@ -11,7 +11,7 @@
     "id": "35c009c7-1909-4415-95c2-da5ceb93d4a1",
     "email": "Jadejaurdip@gmail.com",
     "name": "urdip",
-    "password_hash": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
     "photo_url": "http://localhost:8000/uploads/users/35c009c7-1909-4415-95c2-da5ceb93d4a1/profile.jpg",
     "created_at": "d18d3208-ff79-11f0-9172-da33ba08cbba"
   },
@@ -20,7 +20,7 @@
     "email": "jadejaurdip@gmail.com",
     "name": "Urdipsinh Jadeja",
     "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "photo_url": "http://localhost:8000/uploads/users/8c19dd45-6637-40d7-b4f4-f8a27051930a/profile.jpg",
+    "photo_url": null,
     "created_at": "6a3b3814-0093-11f1-a7d0-da33ba08cbba"
   },
   "Jadejaurdip!@gmail.com": {
@@ -30,5 +30,21 @@
     "password_hash": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
     "photo_url": null,
     "created_at": "a63c85be-0171-11f1-9e47-da33ba08cbba"
+  },
+  "demo1771175361@example.com": {
+    "id": "af08e0a4-c21e-45fd-a4e6-d5d077555069",
+    "email": "demo1771175361@example.com",
+    "name": "Demo User",
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "photo_url": null,
+    "created_at": "11cc4558-0a91-11f1-9499-da33ba08cbba"
+  },
+  "csgo886624@gmail.com": {
+    "id": "05a91384-f248-4387-80d8-68e479f73626",
+    "email": "csgo886624@gmail.com",
+    "name": "Henry Go",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "photo_url": null,
+    "created_at": "3bcd7f84-0a91-11f1-9499-da33ba08cbba"
   }
 }

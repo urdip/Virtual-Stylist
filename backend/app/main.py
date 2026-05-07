@@ -5,16 +5,29 @@ FastAPI backend for Virtual Stylist app
 """
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import uvicorn
 import os
 import shutil
 import uuid
+import hashlib
+import asyncio
 from pathlib import Path
 from urllib.parse import quote
 import httpx
 import time
+
+# In-memory result cache: (person_hash + garment_urls) -> result_url
+_tryon_cache: dict[str, str] = {}
+
+def _cache_key(person_path: str, urls: list[str]) -> str:
+    try:
+        person_hash = hashlib.md5(open(person_path, "rb").read()).hexdigest()[:8]
+    except Exception:
+        return ""
+    return hashlib.md5(f"{person_hash}:{','.join(sorted(urls))}".encode()).hexdigest()
 
 try:
     from dotenv import load_dotenv
@@ -23,14 +36,15 @@ except:
     pass
 
 from app.auth import (
-    register_user, login_user, logout_user, require_auth, 
-    update_user_photo, delete_user_photo, update_user_profile,
+    register_user, login_user, logout_user, require_auth,
+    google_login_user,
+    update_user_photo, delete_user_photo, update_user_profile, change_password,
     User, UserCreate, UserLogin
 )
 
 app = FastAPI(title="Virtual Stylist API", version="2.0")
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS.split(","),
@@ -39,9 +53,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_UPLOADS = Path("uploads")
-BASE_UPLOADS.mkdir(exist_ok=True)
-BACKEND_PUBLIC_BASE = os.getenv("BACKEND_PUBLIC_BASE", "http://localhost:8000")
+# Use /tmp on Vercel (serverless), local uploads dir for development
+BASE_UPLOADS = Path(os.getenv("UPLOADS_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "uploads"))
+BASE_UPLOADS.mkdir(parents=True, exist_ok=True)
+
+# Determine BACKEND_PUBLIC_BASE: use https for Vercel, http for localhost
+_vercel_url = os.getenv("VERCEL_URL")
+if _vercel_url:
+    BACKEND_PUBLIC_BASE = os.getenv("BACKEND_PUBLIC_BASE", "https://" + _vercel_url)
+else:
+    BACKEND_PUBLIC_BASE = os.getenv("BACKEND_PUBLIC_BASE", "http://localhost:8000")
 
 def get_user_dir(user_id: str) -> Path:
     user_dir = BASE_UPLOADS / "users" / user_id
@@ -66,6 +87,23 @@ async def login(credentials: UserLogin):
     return {"status": "success", "token": session.token, "user": {
         "id": session.user_id,
         "email": session.email
+    }}
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
+@app.post("/auth/google")
+async def google_login(request: GoogleLoginRequest):
+    session = google_login_user(request.id_token)
+    from app.auth import get_current_user
+    user = get_current_user(session.token)
+    if user:
+        get_user_dir(user.id)
+    return {"status": "success", "token": session.token, "user": {
+        "id": session.user_id,
+        "email": session.email,
+        "name": user.name if user else "",
+        "photo_url": user.photo_url if user else None,
     }}
 
 @app.post("/auth/logout")
@@ -152,6 +190,49 @@ async def update_profile(
     
     return {"status": "success", "user": updated_user}
 
+@app.post("/auth/change-password")
+async def change_user_password(
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    user: User = Depends(require_auth)
+):
+    """Change user password"""
+    change_password(user.email, current_password, new_password)
+    return {"status": "success", "message": "Password changed successfully"}
+
+# Image proxy: fetches Zara CDN product images server-side to avoid hotlink blocking.
+# STRICT ALLOWLIST — only static.zara.net is permitted. This endpoint is not a general-purpose
+# image proxy; adding other hosts here would reopen the open-proxy attack surface.
+ALLOWED_IMAGE_HOSTS = {"static.zara.net", "image.hm.com"}
+
+@app.get("/image-proxy")
+async def image_proxy(url: str):
+    from urllib.parse import urlparse
+    from fastapi.responses import Response as FastAPIResponse
+    parsed = urlparse(url)
+    if parsed.hostname not in ALLOWED_IMAGE_HOSTS:
+        raise HTTPException(status_code=400, detail="Image host not allowed")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; VirtualStylist/1.0)",
+        "Referer": "https://www.zara.com/",
+        "Accept": "image/*,*/*;q=0.8",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail="Failed to fetch image")
+        content_type = resp.headers.get("content-type", "image/jpeg")
+        if not content_type.startswith("image/"):
+            raise HTTPException(status_code=502, detail="Response is not an image")
+        return FastAPIResponse(
+            content=resp.content,
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Image fetch error: {exc}")
+
 # Wardrobe with categories
 @app.post("/wardrobe/upload")
 async def upload_clothing(
@@ -178,6 +259,44 @@ async def upload_clothing(
         "file_id": file_id,
         "url": f"{BACKEND_PUBLIC_BASE}/uploads/users/{user.id}/wardrobe/{category}/{file_id}",
         "category": category
+    }
+
+class ImportFromUrlRequest(BaseModel):
+    image_url: str
+    category: str = "top"
+    name: str = "imported"
+
+@app.post("/wardrobe/import-from-url")
+async def import_clothing_from_url(body: ImportFromUrlRequest, user: User = Depends(require_auth)):
+    from urllib.parse import urlparse
+    parsed = urlparse(body.image_url)
+    if parsed.hostname not in ALLOWED_IMAGE_HOSTS:
+        raise HTTPException(status_code=400, detail="Image host not allowed")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; VirtualStylist/1.0)",
+        "Accept": "image/*,*/*;q=0.8",
+    }
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        resp = await client.get(body.image_url, headers=headers)
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail="Failed to fetch image")
+    content_type = resp.headers.get("content-type", "image/jpeg")
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=502, detail="Response is not an image")
+    ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    ext = ext_map.get(content_type.split(";")[0].strip(), ".jpg")
+    wardrobe_dir = get_wardrobe_dir(user.id)
+    cat_dir = wardrobe_dir / body.category
+    cat_dir.mkdir(exist_ok=True)
+    file_id = f"{uuid.uuid4()}{ext}"
+    file_path = cat_dir / file_id
+    with open(file_path, "wb") as f:
+        f.write(resp.content)
+    return {
+        "status": "success",
+        "file_id": file_id,
+        "url": f"{BACKEND_PUBLIC_BASE}/uploads/users/{user.id}/wardrobe/{body.category}/{file_id}",
+        "category": body.category,
     }
 
 @app.get("/wardrobe/list")
@@ -260,16 +379,25 @@ async def tryon_multiple(
         print(f"  {i+1}. {url}")
     if not urls:
         raise HTTPException(status_code=400, detail="No garments provided")
-    
-    # Download all garments and detect categories from URLs
+
+    # Check cache before doing any work
+    cache_key = _cache_key(str(person_path), urls)
+    if cache_key and cache_key in _tryon_cache:
+        print(f"  Cache hit! Returning cached result.")
+        return {"status": "success", "result_url": _tryon_cache[cache_key], "cached": True, "garment_count": len(urls)}
+
+    # Download avatar and all garments concurrently
+    garment_downloads = await asyncio.gather(
+        *[_download_garment(url, user_dir) for url in urls],
+        return_exceptions=True
+    )
     garment_paths = []
     categories = []
-    for url in urls:
-        garment_path = await _download_garment(url, user_dir)
-        garment_paths.append(garment_path)
-        
-        # Detect category from URL path
-        category = "top"  # default
+    for url, result in zip(urls, garment_downloads):
+        if isinstance(result, Exception):
+            raise HTTPException(status_code=400, detail=f"Failed to download garment: {result}")
+        garment_paths.append(result)
+        category = "top"
         if "/top/" in url:
             category = "top"
         elif "/bottom/" in url:
@@ -282,24 +410,27 @@ async def tryon_multiple(
             category = "accessory"
         categories.append(category)
         print(f"  Garment: {url} -> category: {category}")
-    
+
     output_id = f"result_{uuid.uuid4()}.jpg"
     output_path = user_dir / output_id
-    
+
     # Process garments using Kling AI
     if len(garment_paths) == 1:
         out_file = await _process_single_garment(person_path, garment_paths[0], output_path, user_dir, categories[0])
     else:
         out_file = await _process_multiple_garments(person_path, garment_paths, output_path, user_dir, categories)
-    
+
     if out_file and Path(out_file).exists():
         result_filename = Path(out_file).name
+        result_url = f"{BACKEND_PUBLIC_BASE}/uploads/users/{user.id}/{result_filename}"
+        if cache_key and len(_tryon_cache) < 200:
+            _tryon_cache[cache_key] = result_url
         return {
             "status": "success",
-            "result_url": f"{BACKEND_PUBLIC_BASE}/uploads/users/{user.id}/{result_filename}",
+            "result_url": result_url,
             "garment_count": len(garment_paths)
         }
-    
+
     raise HTTPException(status_code=500, detail="Try-on failed")
 
 async def _process_single_garment(person_path: Path, garment_path: Path, output_path: Path, user_dir: Path, category: str = "top") -> str:
@@ -401,11 +532,18 @@ async def _process_multiple_garments(person_path: Path, garment_paths: list, out
     return str(output_path)
 
 async def _download_garment(url: str, dest_dir: Path) -> Path:
+    """Download garment or use local file if it's a local URL"""
     if url.startswith(f"{BACKEND_PUBLIC_BASE}/uploads/"):
-        local_path = BASE_UPLOADS / url.split("/uploads/")[-1].replace("users/", "")
+        # Local file - construct path directly
+        relative_path = url.split("/uploads/")[-1]
+        local_path = BASE_UPLOADS / relative_path
         if local_path.exists():
+            print(f"  Using local file: {local_path}")
             return local_path
+        else:
+            print(f"  Local file not found: {local_path}")
     
+    # Download from URL
     ext = ".jpg"
     if "." in url.split("/")[-1]:
         ext = "." + url.split("/")[-1].split(".")[-1].split("?")[0]
@@ -413,13 +551,18 @@ async def _download_garment(url: str, dest_dir: Path) -> Path:
     garment_id = f"garment_{uuid.uuid4()}{ext}"
     garment_path = dest_dir / garment_id
     
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        response.raise_for_status()
-        with open(garment_path, "wb") as f:
-            f.write(response.content)
-    
-    return garment_path
+    print(f"  Downloading from: {url}")
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=30)
+            response.raise_for_status()
+            with open(garment_path, "wb") as f:
+                f.write(response.content)
+        print(f"  Downloaded to: {garment_path}")
+        return garment_path
+    except Exception as e:
+        print(f"  Download failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to download garment: {str(e)}")
 
 # Avatar Management Endpoints
 from app.avatars import (
@@ -515,6 +658,88 @@ async def delete_existing_avatar(avatar_id: str, user: User = Depends(require_au
     success = delete_avatar(user.id, avatar_id)
     
     return {"status": "success", "message": "Avatar deleted"}
+
+
+# Outfit Management Endpoints
+from app.outfits import (
+    get_user_outfits, save_outfit, delete_outfit, update_outfit_name,
+    SavedOutfit, OutfitCreate
+)
+
+@app.get("/outfits")
+async def list_outfits(user: User = Depends(require_auth)):
+    """Get all saved outfits for the current user"""
+    outfits = get_user_outfits(user.id)
+    return {"status": "success", "outfits": outfits}
+
+@app.post("/outfits")
+async def create_outfit(
+    outfit: OutfitCreate,
+    user: User = Depends(require_auth)
+):
+    """Save a new outfit with AI-generated result"""
+    # Auto-generate name if not provided or empty
+    name = outfit.name
+    if not name or name.strip() == "":
+        # Generate name from garment categories
+        categories = [g.category for g in outfit.garments]
+        if len(categories) == 1:
+            name = f"My {categories[0].capitalize()}"
+        elif len(categories) == 2:
+            name = f"{categories[0].capitalize()} & {categories[1].capitalize()}"
+        else:
+            name = f"Outfit ({len(categories)} items)"
+    
+    saved = save_outfit(
+        user.id,
+        name.strip(),
+        outfit.result_url,
+        [g.dict() for g in outfit.garments]
+    )
+    return {"status": "success", "outfit": saved}
+
+@app.put("/outfits/{outfit_id}")
+async def rename_outfit(
+    outfit_id: str,
+    name: str = Form(...),
+    user: User = Depends(require_auth)
+):
+    """Update an outfit's name"""
+    outfit = update_outfit_name(user.id, outfit_id, name)
+    return {"status": "success", "outfit": outfit}
+
+@app.delete("/outfits/{outfit_id}")
+async def remove_outfit(outfit_id: str, user: User = Depends(require_auth)):
+    """Delete a saved outfit"""
+    success = delete_outfit(user.id, outfit_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Outfit not found")
+    return {"status": "success", "message": "Outfit deleted"}
+
+
+# Image proxy — fetches external images server-side and re-serves them.
+# This bypasses CORS / hotlink restrictions (e.g. Zara CDN) so the browser
+# always receives images from our own origin.
+@app.get("/proxy/image")
+async def proxy_image(url: str):
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="Only HTTPS image URLs are supported")
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Referer": "https://www.zara.com/",
+        }
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+        content_type = resp.headers.get("content-type", "image/jpeg")
+        from fastapi.responses import Response
+        return Response(content=resp.content, media_type=content_type,
+                        headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch image: {e}")
+
 
 # Serve files
 @app.get("/uploads/{path:path}")
